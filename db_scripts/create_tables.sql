@@ -1,3 +1,5 @@
+-- usage: sqlplus sys_user/sys_password @create_tables.sql <tablespace_name>
+
 CREATE TABLE tmp_orders(
 	external_id VARCHAR2(512) not null,
 	state_id NUMBER not null,
@@ -38,16 +40,16 @@ CREATE TABLE tmp_stats_new(
 -- создаем индексы
 
 -- tmp_orders
-CREATE INDEX TORD_EXTID_I ON tmp_orders(external_id) INITRANS 40 TABLESPACE ${tablespace_name} LOCAL;
+CREATE INDEX TORD_EXTID_I ON tmp_orders(external_id) INITRANS 40 TABLESPACE &1;
 
 -- tmp_transitions
-CREATE INDEX TTRANS_EXTID_I ON tmp_transitions(external_id) INITRANS 40 TABLESPACE ${tablespace_name} LOCAL;
-CREATE INDEX TTRANS_FROM_STATE_I ON tmp_transitions(from_state) INITRANS 40 TABLESPACE ${tablespace_name} LOCAL;
-CREATE INDEX TTRANS_TO_STATE_I ON tmp_transitions(to_state) INITRANS 40 TABLESPACE ${tablespace_name} LOCAL;
+CREATE INDEX TTRANS_EXTID_I ON tmp_transitions(external_id) INITRANS 40 TABLESPACE &1;
+CREATE INDEX TTRANS_FROM_STATE_I ON tmp_transitions(from_state) INITRANS 40 TABLESPACE &1;
+CREATE INDEX TTRANS_TO_STATE_I ON tmp_transitions(to_state) INITRANS 40 TABLESPACE &1;
 
 -- tmp_stats
-CREATE INDEX TSTATS_EXTID_I ON tmp_stats(external_id) INITRANS 40 TABLESPACE ${tablespace_name} LOCAL;
-CREATE INDEX TSTATS_TO_STATE_TIME_I ON tmp_stats(to_state_time) INITRANS 40 TABLESPACE ${tablespace_name} LOCAL;
+CREATE INDEX TSTATS_EXTID_I ON tmp_stats(external_id) INITRANS 40 TABLESPACE &1;
+CREATE INDEX TSTATS_TO_STATE_TIME_I ON tmp_stats(to_state_time) INITRANS 40 TABLESPACE &1;
 
 -- tmp_stats_new
-CREATE INDEX TSTATSNEW_TO_STATE_TIME_I ON tmp_stats_new(transition_time) INITRANS 40 TABLESPACE ${tablespace_name} LOCAL;
+CREATE INDEX TSTATSNEW_TO_STATE_TIME_I ON tmp_stats_new(transition_time) INITRANS 40 TABLESPACE &1;

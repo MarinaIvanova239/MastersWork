@@ -6,7 +6,7 @@ BEGIN
 	SELECT o.external_id, o.state_id, o.priority, o.processing_type, o.creation_time, o.exec_start_time, o.exec_end_time
 	FROM orders o
 	WHERE o.workflow_name=wf_name
-	AND o.creation_time > sysdate-1
+	AND o.update_time > sysdate-1
 	AND o.state_id = 3;
 
 	INSERT INTO tmp_transitions(external_id, transition_time, from_state, to_state, event_name, last_action)
@@ -20,7 +20,7 @@ CREATE OR REPLACE PROCEDURE by_creation_time_count(by_creation_time_stat OUT SYS
 AS
 BEGIN
     OPEN by_creation_time_stat FOR
-    SELECT to_char(tord.creation_time, 'yyyy-mm-dd hh24:mi'), count(*)
+    SELECT to_char(tord.creation_time, 'yyyy-mm-dd hh24:mi') as creation_time, count(*)
 	FROM tmp_orders tord
 	GROUP BY to_char(tord.creation_time, 'yyyy-mm-dd hh24:mi');
 END;
@@ -30,7 +30,7 @@ CREATE OR REPLACE PROCEDURE by_exec_start_time_count(by_exec_start_time_stat OUT
 AS
 BEGIN
 	OPEN by_exec_start_time_stat FOR
-	SELECT to_char(tord.exec_start_time, 'yyyy-mm-dd hh24:mi'), count(*)
+	SELECT to_char(tord.exec_start_time, 'yyyy-mm-dd hh24:mi') as exec_start_time, count(*)
 	FROM tmp_orders tord
 	GROUP BY to_char(tord.exec_start_time, 'yyyy-mm-dd hh24:mi');
 END;
@@ -39,7 +39,7 @@ CREATE OR REPLACE PROCEDURE by_exec_end_time_count(by_exec_end_time_stat OUT SYS
 AS
 BEGIN
 	OPEN by_exec_end_time_stat FOR
-	SELECT to_char(tord.exec_end_time, 'yyyy-mm-dd hh24:mi'), count(*)
+	SELECT to_char(tord.exec_end_time, 'yyyy-mm-dd hh24:mi') as exec_end_time, count(*)
 	FROM tmp_orders tord
 	GROUP BY to_char(tord.exec_end_time, 'yyyy-mm-dd hh24:mi');
 END;
@@ -120,8 +120,8 @@ BEGIN
 	END LOOP;
 
     COMMIT;
-
 END;
+
 
 -- отсюда нужно будет выбирать с группировкой по from_state
 -- только для первого стейта
@@ -134,7 +134,7 @@ AS
 BEGIN
 	execute immediate 'DELETE FROM tmp_stats';
 
-	FOR e_id IN (SELECT DISTINCT external_id FROM tmp_stats)
+	FOR e_id IN (SELECT DISTINCT external_id FROM tmp_orders)
     LOOP
 		INSERT INTO tmp_stats(state, external_id, from_state, to_state, to_state_time, from_state_time, in_state_time)
 		SELECT state_name, tord.external_id, NULL, NULL, tord.exec_start_time, NULL, NULL
