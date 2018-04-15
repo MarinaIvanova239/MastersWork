@@ -1,40 +1,40 @@
 -- usage: sqlplus sys_user/sys_password @create_tables.sql <tablespace_name>
 
 CREATE TABLE tmp_orders(
-	external_id VARCHAR2(512) not null,
-	state_id NUMBER not null,
-	priority NUMBER,
-	processing_type NUMBER not null,
-	creation_time TIMESTAMP not null,
-	exec_start_time TIMESTAMP,
-	exec_end_time TIMESTAMP
+	external_id         VARCHAR2(512) not null,
+	state_id            NUMBER not null,
+	priority            NUMBER,
+	processing_type     NUMBER not null,
+	creation_time       TIMESTAMP not null,
+	exec_start_time     TIMESTAMP,
+	exec_end_time       TIMESTAMP
 );
 
 CREATE TABLE tmp_transitions(
-	external_id VARCHAR2(512) not null,
-	transition_time TIMESTAMP not null,
-	from_state VARCHAR2(64) not null,
-	to_state VARCHAR2(64) not null,
-	event_name VARCHAR2(128) not null,
-	last_action CLOB not null
+	external_id         VARCHAR2(512) not null,
+	transition_time     TIMESTAMP not null,
+	from_state          VARCHAR2(64) not null,
+	to_state            VARCHAR2(64) not null,
+	event_name          VARCHAR2(128) not null,
+	last_action         CLOB not null
 );
 
 -- сколько времени заявка провела в состоянии, до того, как выйти по какому либо событию.
 CREATE TABLE tmp_stats(
-    state VARCHAR2(64),                     -- исследуемое состояние
-	external_id VARCHAR2(512) not null,
-	from_state VARCHAR2(64),                -- откуда перешли в исследуемого состояния
-	to_state VARCHAR2(64),                  -- куда перешли из исследуемого состояния
-	to_state_time TIMESTAMP not null,       -- время перехода в это состояние
-	from_state_time TIMESTAMP,              -- время выхода из состояния
-	in_state_time INTERVAL DAY TO SECOND    -- время в исследуемом состоянии
+    state               VARCHAR2(64),                   -- исследуемое состояние
+	external_id         VARCHAR2(512) not null,
+	from_state          VARCHAR2(64),                   -- откуда перешли в исследуемого состояния
+	to_state            VARCHAR2(64),                   -- куда перешли из исследуемого состояния
+	to_state_time       TIMESTAMP,                      -- время перехода в это состояние
+	from_state_time     TIMESTAMP,                      -- время выхода из состояния
+	in_state_time       INTERVAL DAY TO SECOND          -- время в исследуемом состоянии
 );
 
 -- вспомогательная табличка
 CREATE TABLE tmp_stats_new(
-	external_id VARCHAR2(512) not null,
-	transition_time TIMESTAMP not null,
-	to_state VARCHAR2(64)
+	external_id         VARCHAR2(512) not null,
+	transition_time     TIMESTAMP not null,
+	state               VARCHAR2(64)
 );
 
 -- создаем индексы

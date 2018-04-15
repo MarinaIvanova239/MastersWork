@@ -62,9 +62,7 @@ BEGIN
 	GROUP BY tord.processing_type;
 END;
 
--- отсюда нужно будет выбирать с группировкой по from_state
--- не для первого стейта
--- отсюда - куда выходили и сколько раз
+-- не для первого и последнего стейта
 CREATE OR REPLACE PROCEDURE time_in_state_count(state_name VARCHAR2)
 AS
     tr_to_time      TIMESTAMP;
@@ -81,7 +79,7 @@ BEGIN
     LOOP
 		execute immediate 'DELETE FROM tmp_stats_new';
 
-		INSERT INTO tmp_stats_new(external_id, transition_time, to_state)
+		INSERT INTO tmp_stats_new(external_id, transition_time, state)
 		SELECT tt.external_id, tt.transition_time, tt.to_state
 		FROM tmp_transitions tt
 		WHERE tt.from_state = state_name AND tt.external_id = e_id.external_id;
@@ -100,7 +98,7 @@ BEGIN
 			SELECT tsn_to_state
 			INTO to_state_name
 			FROM
-            (SELECT tsn.to_state as tsn_to_state
+            (SELECT tsn.state as tsn_to_state
              FROM tmp_stats_new tsn
              WHERE tsn.transition_time > tr_time.to_state_time
              ORDER BY tsn.transition_time ASC)
@@ -122,10 +120,7 @@ BEGIN
     COMMIT;
 END;
 
-
--- отсюда нужно будет выбирать с группировкой по from_state
 -- только для первого стейта
--- отсюда - куда выходили и сколько раз
 CREATE OR REPLACE PROCEDURE first_time_in_state_count(state_name VARCHAR2)
 AS
     tr_time         TIMESTAMP;
@@ -146,7 +141,7 @@ BEGIN
     LOOP
 		execute immediate 'DELETE FROM tmp_stats_new';
 
-		INSERT INTO tmp_stats_new(external_id, transition_time, to_state)
+		INSERT INTO tmp_stats_new(external_id, transition_time, state)
 		SELECT tt.external_id, tt.transition_time, tt.to_state
 		FROM tmp_transitions tt
 		WHERE tt.from_state = state_name and tt.external_id = e_id.external_id;
@@ -168,7 +163,7 @@ BEGIN
         SELECT tsn_to_state
         INTO to_state_name
         FROM
-        (SELECT tsn.to_state as tsn_to_state
+        (SELECT tsn.state as tsn_to_state
          FROM tmp_stats_new tsn
          WHERE tsn.transition_time > tr_time
          ORDER BY tsn.transition_time ASC)
@@ -187,6 +182,68 @@ BEGIN
 	END LOOP;
 END;
 
+-- только для последнего стейта
+CREATE OR REPLACE PROCEDURE last_time_in_state_count(state_name VARCHAR2)
+AS
+    tr_time             TIMESTAMP;
+    tr_from_time        TIMESTAMP;
+    from_state_name     VARCHAR2(64);
+BEGIN
+	execute immediate 'DELETE FROM tmp_stats';
+
+	FOR e_id IN (SELECT DISTINCT external_id FROM tmp_orders)
+    LOOP
+		INSERT INTO tmp_stats(state, external_id, from_state, to_state, to_state_time, from_state_time, in_state_time)
+		SELECT state_name, tord.external_id, NULL, NULL, NULL, tord.exec_end_time, NULL
+		FROM tmp_orders tord
+		WHERE tord.external_id = e_id.external_id;
+	END LOOP;
+
+	FOR e_id IN (SELECT DISTINCT external_id FROM tmp_stats)
+    LOOP
+		execute immediate 'DELETE FROM tmp_stats_new';
+
+		INSERT INTO tmp_stats_new(external_id, transition_time, state)
+		SELECT tt.external_id, tt.transition_time, tt.from_state
+		FROM tmp_transitions tt
+		WHERE tt.to_state = state_name and tt.external_id = e_id.external_id;
+
+		SELECT from_state_time
+        INTO tr_time
+        FROM tmp_stats
+        WHERE external_id = e_id.external_id AND ROWNUM = 1;
+
+        SELECT tsn_time
+        INTO tr_from_time
+        FROM
+        (SELECT tsn.transition_time as tsn_time
+         FROM tmp_stats_new tsn
+         WHERE tsn.transition_time < tr_time
+         ORDER BY tsn.transition_time DESC)
+         WHERE ROWNUM = 1;
+
+        SELECT tsn_from_state
+        INTO from_state_name
+        FROM
+        (SELECT tsn.state as tsn_from_state
+         FROM tmp_stats_new tsn
+         WHERE tsn.transition_time < tr_time
+         ORDER BY tsn.transition_time DESC)
+         WHERE ROWNUM = 1;
+
+		UPDATE tmp_stats
+		SET to_state_time = tr_from_time,
+			from_state = from_state_name,
+			in_state_time = (from_state_time - tr_from_time)
+		WHERE external_id = e_id.external_id AND from_state_time = tr_time;
+
+		UPDATE tmp_stats
+		SET in_state_time = ((SELECT exec_end_time FROM tmp_orders WHERE external_id = e_id.external_id) - tr_time)
+		WHERE in_state_time = NULL;
+
+	END LOOP;
+END;
+
 
 CREATE OR REPLACE PROCEDURE transitions_to_states_count (state_name VARCHAR2, tr_to_state_stat OUT SYS_REFCURSOR)
 AS
@@ -194,7 +251,7 @@ BEGIN
     OPEN tr_to_state_stat FOR
 	SELECT ts.to_state, count(*)
 	FROM tmp_stats ts
-	WHERE ts.from_state = state_name
+	WHERE ts.state = state_name
 	GROUP BY ts.to_state;
 END;
 
