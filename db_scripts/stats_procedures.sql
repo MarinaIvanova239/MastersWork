@@ -70,6 +70,7 @@ AS
 BEGIN
 	execute immediate 'DELETE FROM tmp_stats';
 
+    -- сохраняем все переходы в исследуемое состояние
 	INSERT INTO tmp_stats(state, external_id, from_state, to_state, to_state_time, from_state_time, in_state_time)
 	SELECT state_name, tt.external_id, tt.from_state, NULL, tt.transition_time, NULL, NULL
 	FROM tmp_transitions tt
@@ -79,11 +80,13 @@ BEGIN
     LOOP
 		execute immediate 'DELETE FROM tmp_stats_new';
 
+        -- по одной заявке сохраняем все переходы из исследуемого состояния
 		INSERT INTO tmp_stats_new(external_id, transition_time, state)
 		SELECT tt.external_id, tt.transition_time, tt.to_state
 		FROM tmp_transitions tt
 		WHERE tt.from_state = state_name AND tt.external_id = e_id.external_id;
 
+        -- сопоставляем по времени все переходы в состояние с переходами из состояния
 		FOR tr_time IN (SELECT to_state_time FROM tmp_stats WHERE external_id = e_id.external_id)
         LOOP
 			SELECT tsn_time
@@ -111,6 +114,7 @@ BEGIN
 			WHERE external_id = e_id.external_id AND to_state_time = tr_time.to_state_time;
 		END LOOP;
 
+        -- заполняем время в состоянии для всех переходов, для которых не нашлось парного перехода
 		UPDATE tmp_stats
 		SET in_state_time = ((SELECT exec_end_time FROM tmp_orders WHERE external_id = e_id.external_id) - to_state_time)
 		WHERE in_state_time = NULL;
@@ -129,6 +133,7 @@ AS
 BEGIN
 	execute immediate 'DELETE FROM tmp_stats';
 
+    -- создаем уникальные записи для каждой заявки с временем перехода в состояние = времени начала исполнения заявки
 	FOR e_id IN (SELECT DISTINCT external_id FROM tmp_orders)
     LOOP
 		INSERT INTO tmp_stats(state, external_id, from_state, to_state, to_state_time, from_state_time, in_state_time)
@@ -141,11 +146,13 @@ BEGIN
     LOOP
 		execute immediate 'DELETE FROM tmp_stats_new';
 
+        -- по одной заявке сохраняем все переходы из исследуемого состояния
 		INSERT INTO tmp_stats_new(external_id, transition_time, state)
 		SELECT tt.external_id, tt.transition_time, tt.to_state
 		FROM tmp_transitions tt
 		WHERE tt.from_state = state_name and tt.external_id = e_id.external_id;
 
+        -- находим первый переход из исследуемого состояния
 		SELECT to_state_time
         INTO tr_time
         FROM tmp_stats
@@ -175,11 +182,14 @@ BEGIN
 			in_state_time = (tr_to_time - to_state_time)
 		WHERE external_id = e_id.external_id AND to_state_time = tr_time;
 
+        -- заполняем время в состоянии для всех переходов, для которых не нашлось ни одного перехода из исследуемого состония
 		UPDATE tmp_stats
 		SET in_state_time = ((SELECT exec_end_time FROM tmp_orders WHERE external_id = e_id.external_id) - tr_time)
 		WHERE in_state_time = NULL;
 
 	END LOOP;
+
+	COMMIT;
 END;
 
 -- только для последнего стейта
@@ -191,6 +201,7 @@ AS
 BEGIN
 	execute immediate 'DELETE FROM tmp_stats';
 
+    -- создаем уникальные записи для каждой заявки с временем выхода из состояния = времени окончания исполнения заявки
 	FOR e_id IN (SELECT DISTINCT external_id FROM tmp_orders)
     LOOP
 		INSERT INTO tmp_stats(state, external_id, from_state, to_state, to_state_time, from_state_time, in_state_time)
@@ -203,11 +214,13 @@ BEGIN
     LOOP
 		execute immediate 'DELETE FROM tmp_stats_new';
 
+        -- по одной заявке сохраняем все переходы в исследуемое состояние
 		INSERT INTO tmp_stats_new(external_id, transition_time, state)
 		SELECT tt.external_id, tt.transition_time, tt.from_state
 		FROM tmp_transitions tt
 		WHERE tt.to_state = state_name and tt.external_id = e_id.external_id;
 
+        -- находим последний переход в исследуемое состояние
 		SELECT from_state_time
         INTO tr_time
         FROM tmp_stats
@@ -237,11 +250,14 @@ BEGIN
 			in_state_time = (from_state_time - tr_from_time)
 		WHERE external_id = e_id.external_id AND from_state_time = tr_time;
 
+        -- заполняем время в состоянии для всех переходов, для которых не нашлось ни одного перехода в исследуемое состоние
 		UPDATE tmp_stats
 		SET in_state_time = ((SELECT exec_end_time FROM tmp_orders WHERE external_id = e_id.external_id) - tr_time)
 		WHERE in_state_time = NULL;
 
 	END LOOP;
+
+	COMMIT;
 END;
 
 
