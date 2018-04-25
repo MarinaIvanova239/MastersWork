@@ -114,11 +114,6 @@ BEGIN
 			WHERE external_id = e_id.external_id AND to_state_time = tr_time.to_state_time;
 		END LOOP;
 
-        -- заполняем время в состоянии для всех переходов, для которых не нашлось парного перехода
-		UPDATE tmp_stats
-		SET in_state_time = ((SELECT exec_end_time FROM tmp_orders WHERE external_id = e_id.external_id) - to_state_time)
-		WHERE in_state_time = NULL;
-
 	END LOOP;
 
     COMMIT;
@@ -182,11 +177,6 @@ BEGIN
 			in_state_time = (tr_to_time - to_state_time)
 		WHERE external_id = e_id.external_id AND to_state_time = tr_time;
 
-        -- заполняем время в состоянии для всех переходов, для которых не нашлось ни одного перехода из исследуемого состония
-		UPDATE tmp_stats
-		SET in_state_time = ((SELECT exec_end_time FROM tmp_orders WHERE external_id = e_id.external_id) - tr_time)
-		WHERE in_state_time = NULL;
-
 	END LOOP;
 
 	COMMIT;
@@ -231,7 +221,7 @@ BEGIN
         FROM
         (SELECT tsn.transition_time as tsn_time
          FROM tmp_stats_new tsn
-         WHERE tsn.transition_time < tr_time
+         WHERE tsn.transition_time <= tr_time
          ORDER BY tsn.transition_time DESC)
          WHERE ROWNUM = 1;
 
@@ -240,7 +230,7 @@ BEGIN
         FROM
         (SELECT tsn.state as tsn_from_state
          FROM tmp_stats_new tsn
-         WHERE tsn.transition_time < tr_time
+         WHERE tsn.transition_time <= tr_time
          ORDER BY tsn.transition_time DESC)
          WHERE ROWNUM = 1;
 
@@ -249,11 +239,6 @@ BEGIN
 			from_state = from_state_name,
 			in_state_time = (from_state_time - tr_from_time)
 		WHERE external_id = e_id.external_id AND from_state_time = tr_time;
-
-        -- заполняем время в состоянии для всех переходов, для которых не нашлось ни одного перехода в исследуемое состоние
-		UPDATE tmp_stats
-		SET in_state_time = ((SELECT exec_end_time FROM tmp_orders WHERE external_id = e_id.external_id) - tr_time)
-		WHERE in_state_time = NULL;
 
 	END LOOP;
 

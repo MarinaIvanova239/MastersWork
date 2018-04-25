@@ -4,5 +4,6 @@ DECLARE
 BEGIN
   execute immediate 'DELETE FROM tmp_orders';
   execute immediate 'DELETE FROM tmp_transitions';
+  execute immediate 'commit';
   stats_prepare(wf_name);
 END;
