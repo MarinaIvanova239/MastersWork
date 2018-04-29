@@ -1,3 +1,3 @@
-VARIABLE my_cursor REFCURSOR;
-execute transitions_to_states_count($1, :my_cursor);
-PRINT my_cursor;
+SELECT ts.to_state, count(*)
+FROM tmp_stats ts
+GROUP BY ts.to_state;

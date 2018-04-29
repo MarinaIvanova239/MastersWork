@@ -2,8 +2,8 @@
 CREATE OR REPLACE PROCEDURE stats_prepare(wf_name VARCHAR2)
 AS
 BEGIN
-	INSERT INTO tmp_orders(external_id, state_id, priority, processing_type, creation_time, exec_start_time, exec_end_time)
-	SELECT o.external_id, o.state_id, o.priority, o.processing_type, o.creation_time, o.exec_start_time, o.exec_end_time
+	INSERT INTO tmp_orders(external_id, priority, processing_type, creation_time, exec_start_time, exec_end_time)
+	SELECT o.external_id, o.priority, o.processing_type, o.creation_time, o.exec_start_time, o.exec_end_time
 	FROM orders o
 	WHERE o.workflow_name=wf_name
 	AND o.update_time > sysdate-1
@@ -13,53 +13,6 @@ BEGIN
 	SELECT wt.external_id, wt.transition_time, wt.from_state, wt.to_state, wt.event, wt.last_action
 	FROM workflow_transitions wt
 	WHERE wt.external_id IN (SELECT tord.external_id FROM tmp_orders tord);
-END;
-
-
-CREATE OR REPLACE PROCEDURE by_creation_time_count(by_creation_time_stat OUT SYS_REFCURSOR)
-AS
-BEGIN
-    OPEN by_creation_time_stat FOR
-    SELECT to_char(tord.creation_time, 'yyyy-mm-dd hh24:mi') as creation_time, count(*)
-	FROM tmp_orders tord
-	GROUP BY to_char(tord.creation_time, 'yyyy-mm-dd hh24:mi');
-END;
-
-
-CREATE OR REPLACE PROCEDURE by_exec_start_time_count(by_exec_start_time_stat OUT SYS_REFCURSOR)
-AS
-BEGIN
-	OPEN by_exec_start_time_stat FOR
-	SELECT to_char(tord.exec_start_time, 'yyyy-mm-dd hh24:mi') as exec_start_time, count(*)
-	FROM tmp_orders tord
-	GROUP BY to_char(tord.exec_start_time, 'yyyy-mm-dd hh24:mi');
-END;
-
-CREATE OR REPLACE PROCEDURE by_exec_end_time_count(by_exec_end_time_stat OUT SYS_REFCURSOR)
-AS
-BEGIN
-	OPEN by_exec_end_time_stat FOR
-	SELECT to_char(tord.exec_end_time, 'yyyy-mm-dd hh24:mi') as exec_end_time, count(*)
-	FROM tmp_orders tord
-	GROUP BY to_char(tord.exec_end_time, 'yyyy-mm-dd hh24:mi');
-END;
-
-CREATE OR REPLACE PROCEDURE by_priority_count(by_priority_stat OUT SYS_REFCURSOR)
-AS
-BEGIN
-	OPEN by_priority_stat FOR
-	SELECT tord.priority, count(*)
-	FROM tmp_orders tord
-	GROUP BY tord.priority;
-END;
-
-CREATE OR REPLACE PROCEDURE by_processing_type_count(by_processing_type_stat OUT SYS_REFCURSOR)
-AS
-BEGIN
-	OPEN by_processing_type_stat FOR
-	SELECT tord.processing_type, count(*)
-	FROM tmp_orders tord
-	GROUP BY tord.processing_type;
 END;
 
 -- не для первого и последнего стейта
@@ -244,15 +197,3 @@ BEGIN
 
 	COMMIT;
 END;
-
-
-CREATE OR REPLACE PROCEDURE transitions_to_states_count (state_name VARCHAR2, tr_to_state_stat OUT SYS_REFCURSOR)
-AS
-BEGIN
-    OPEN tr_to_state_stat FOR
-	SELECT ts.to_state, count(*)
-	FROM tmp_stats ts
-	WHERE ts.state = state_name
-	GROUP BY ts.to_state;
-END;
-
