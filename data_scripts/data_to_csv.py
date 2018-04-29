@@ -1,6 +1,8 @@
 import cx_Oracle
-connection = cx_Oracle.connect("crab", "snt321", "prf-cnt-db02.snt.billing.ru/db02.snt.billing.ru")
+
+connection = cx_Oracle.connect("user", "password", "host/service")
 print connection.version
+
 cursor = connection.cursor()
 cursor.execute("""
     SELECT external_id, from_state, to_state, to_state_time, from_state_time, in_state_time
@@ -15,9 +17,7 @@ cursor.execute("""
 #	FROM tmp_orders tord
 #	GROUP BY to_char(tord.creation_time, 'yyyy-mm-dd hh24:mi')""")
 
-
-filename = "cam_failed.csv"
-csv = open(filename, "w")
+csv = open("result.csv", "w")
 
 for e_id, from_state, to_state, to_state_time, from_state_time, in_state_time in cursor:
 	row = e_id + "," + from_state + "," + to_state + "," + str(to_state_time) + "," + str(from_state_time) + "," + str(in_state_time) + "\n"
@@ -32,5 +32,4 @@ for e_id, from_state, to_state, to_state_time, from_state_time, in_state_time in
 #	csv.write(row)
 
 csv.close()
-
 connection.close()

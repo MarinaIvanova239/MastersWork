@@ -13,13 +13,15 @@ BEGIN
 	SELECT wt.external_id, wt.transition_time, wt.from_state, wt.to_state, wt.event, wt.last_action
 	FROM workflow_transitions wt
 	WHERE wt.external_id IN (SELECT tord.external_id FROM tmp_orders tord);
+
+	COMMIT;
 END;
 
 -- не для первого и последнего стейта
 CREATE OR REPLACE PROCEDURE time_in_state_count(state_name VARCHAR2)
 AS
-    tr_to_time      TIMESTAMP;
-    to_state_name   VARCHAR2(64);
+    transition_from_state_time      TIMESTAMP;
+    to_state_name                   VARCHAR2(64);
 BEGIN
 	execute immediate 'DELETE FROM tmp_stats';
 
@@ -42,28 +44,21 @@ BEGIN
         -- сопоставляем по времени все переходы в состояние с переходами из состояния
 		FOR tr_time IN (SELECT to_state_time FROM tmp_stats WHERE external_id = e_id.external_id)
         LOOP
-			SELECT tsn_time
-			INTO tr_to_time
+            -- находим время ближайшего перехода из состояния и куда он был совершен
+			SELECT tsn_time, tsn_to_state
+			INTO transition_from_state_time, to_state_name
 			FROM
-			(SELECT tsn.transition_time as tsn_time
+			(SELECT tsn.transition_time as tsn_time, tsn.state as tsn_to_state
              FROM tmp_stats_new tsn
-             WHERE tsn.transition_time > tr_time.to_state_time
+             WHERE tsn.transition_time >= tr_time.to_state_time
              ORDER BY tsn.transition_time ASC)
 			 WHERE ROWNUM = 1;
 
-			SELECT tsn_to_state
-			INTO to_state_name
-			FROM
-            (SELECT tsn.state as tsn_to_state
-             FROM tmp_stats_new tsn
-             WHERE tsn.transition_time > tr_time.to_state_time
-             ORDER BY tsn.transition_time ASC)
-			 WHERE ROWNUM = 1;
-
+            -- записываем полученные данные в таблицу
 			UPDATE tmp_stats
-			SET from_state_time = tr_to_time,
+			SET from_state_time = transition_from_state_time,
 				to_state = to_state_name,
-				in_state_time = (tr_to_time - to_state_time)
+				in_state_time = (transition_from_state_time - to_state_time)
 			WHERE external_id = e_id.external_id AND to_state_time = tr_time.to_state_time;
 		END LOOP;
 
@@ -75,9 +70,9 @@ END;
 -- только для первого стейта
 CREATE OR REPLACE PROCEDURE first_time_in_state_count(state_name VARCHAR2)
 AS
-    tr_time         TIMESTAMP;
-    tr_to_time      TIMESTAMP;
-    to_state_name   VARCHAR2(64);
+    order_exec_start_time           TIMESTAMP;
+    transition_from_state_time      TIMESTAMP;
+    to_state_name                   VARCHAR2(64);
 BEGIN
 	execute immediate 'DELETE FROM tmp_stats';
 
@@ -102,33 +97,26 @@ BEGIN
 
         -- находим первый переход из исследуемого состояния
 		SELECT to_state_time
-        INTO tr_time
+        INTO order_exec_start_time
         FROM tmp_stats
         WHERE external_id = e_id.external_id AND ROWNUM = 1;
 
-        SELECT tsn_time
-        INTO tr_to_time
+         -- получаем время певого перехода и в какое состояние он был произведен
+        SELECT tsn_time, tsn_to_state
+        INTO transition_from_state_time, to_state_name
         FROM
-        (SELECT tsn.transition_time as tsn_time
+        (SELECT tsn.transition_time as tsn_time, tsn.state as tsn_to_state
          FROM tmp_stats_new tsn
-         WHERE tsn.transition_time > tr_time
+         WHERE tsn.transition_time >= order_exec_start_time
          ORDER BY tsn.transition_time ASC)
          WHERE ROWNUM = 1;
 
-        SELECT tsn_to_state
-        INTO to_state_name
-        FROM
-        (SELECT tsn.state as tsn_to_state
-         FROM tmp_stats_new tsn
-         WHERE tsn.transition_time > tr_time
-         ORDER BY tsn.transition_time ASC)
-         WHERE ROWNUM = 1;
-
+        -- записываем полученные данные в таблицу
 		UPDATE tmp_stats
-		SET from_state_time = tr_to_time,
+		SET from_state_time = transition_from_state_time,
 			to_state = to_state_name,
-			in_state_time = (tr_to_time - to_state_time)
-		WHERE external_id = e_id.external_id AND to_state_time = tr_time;
+			in_state_time = (transition_from_state_time - to_state_time)
+		WHERE external_id = e_id.external_id;
 
 	END LOOP;
 
@@ -138,9 +126,9 @@ END;
 -- только для последнего стейта
 CREATE OR REPLACE PROCEDURE last_time_in_state_count(state_name VARCHAR2)
 AS
-    tr_time             TIMESTAMP;
-    tr_from_time        TIMESTAMP;
-    from_state_name     VARCHAR2(64);
+    order_exec_end_time             TIMESTAMP;
+    transition_to_state_time        TIMESTAMP;
+    from_state_name                 VARCHAR2(64);
 BEGIN
 	execute immediate 'DELETE FROM tmp_stats';
 
@@ -165,33 +153,26 @@ BEGIN
 
         -- находим последний переход в исследуемое состояние
 		SELECT from_state_time
-        INTO tr_time
+        INTO exec_end_time
         FROM tmp_stats
-        WHERE external_id = e_id.external_id AND ROWNUM = 1;
+        WHERE external_id = e_id.external_id;
 
-        SELECT tsn_time
-        INTO tr_from_time
+        -- получаем время последнего перехода и из какого состояния он был произведен
+        SELECT tsn_time, tsn_from_state
+        INTO transition_to_state_time, from_state_name
         FROM
-        (SELECT tsn.transition_time as tsn_time
+        (SELECT tsn.transition_time as tsn_time, tsn.state as tsn_from_state
          FROM tmp_stats_new tsn
-         WHERE tsn.transition_time <= tr_time
+         WHERE tsn.transition_time <= order_exec_end_time
          ORDER BY tsn.transition_time DESC)
          WHERE ROWNUM = 1;
 
-        SELECT tsn_from_state
-        INTO from_state_name
-        FROM
-        (SELECT tsn.state as tsn_from_state
-         FROM tmp_stats_new tsn
-         WHERE tsn.transition_time <= tr_time
-         ORDER BY tsn.transition_time DESC)
-         WHERE ROWNUM = 1;
-
+        -- записываем полученные данные в таблицу
 		UPDATE tmp_stats
-		SET to_state_time = tr_from_time,
+		SET to_state_time = transition_to_state_time,
 			from_state = from_state_name,
-			in_state_time = (from_state_time - tr_from_time)
-		WHERE external_id = e_id.external_id AND from_state_time = tr_time;
+			in_state_time = (from_state_time - transition_to_state_time)
+		WHERE external_id = e_id.external_id;
 
 	END LOOP;
 
