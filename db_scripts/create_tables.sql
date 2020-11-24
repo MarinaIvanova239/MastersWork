@@ -2,7 +2,6 @@
 
 CREATE TABLE tmp_orders(
 	external_id         VARCHAR2(512) not null,
-	state_id            NUMBER not null,
 	priority            NUMBER,
 	processing_type     NUMBER not null,
 	creation_time       TIMESTAMP not null,

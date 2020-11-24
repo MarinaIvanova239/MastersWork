@@ -1,16 +1,25 @@
 -- информация по профилю нагрузки
-VARIABLE creation_time_cursor REFCURSOR;
-VARIABLE exec_start_time_cursor REFCURSOR;
-VARIABLE exec_end_time_cursor REFCURSOR;
-VARIABLE priority_cursor REFCURSOR;
-VARIABLE processing_type_cursor REFCURSOR;
-execute by_creation_time_count(:creation_time_cursor);
-execute by_exec_start_time_count(:exec_start_time_cursor);
-execute by_exec_end_time_count(:exec_end_time_cursor);
-execute by_priority_count(:priority_cursor);
-execute by_processing_type_count(:processing_type_cursor);
-PRINT creation_time_cursor;
-PRINT exec_start_time_cursor;
-PRINT exec_end_time_cursor;
-PRINT priority_cursor;
-PRINT processing_type_cursor;
+-- создание в минуту
+SELECT to_char(tord.creation_time, 'yyyy-mm-dd hh24:mi') as creation_time, count(*)
+FROM tmp_orders tord
+GROUP BY to_char(tord.creation_time, 'yyyy-mm-dd hh24:mi');
+
+-- начало исполнения в минуту
+SELECT to_char(tord.exec_start_time, 'yyyy-mm-dd hh24:mi') as exec_start_time, count(*)
+FROM tmp_orders tord
+GROUP BY to_char(tord.exec_start_time, 'yyyy-mm-dd hh24:mi');
+
+-- окончание исполнения в минуту
+SELECT to_char(tord.exec_end_time, 'yyyy-mm-dd hh24:mi') as exec_end_time, count(*)
+FROM tmp_orders tord
+GROUP BY to_char(tord.exec_end_time, 'yyyy-mm-dd hh24:mi');
+
+-- соотношение по приоритетам
+SELECT tord.priority, count(*)
+FROM tmp_orders tord
+GROUP BY tord.priority;
+
+-- соотношение по типу обработки
+SELECT tord.processing_type, count(*)
+FROM tmp_orders tord
+GROUP BY tord.processing_type;
